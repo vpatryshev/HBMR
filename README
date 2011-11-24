@@ -13,6 +13,8 @@ The purpose of this library is this:
 or invent their own math; that's sad;
 - the existing API is approximately 42 times more complex than it should or could be.
 
+Note. You need Java 1.6, but very soon I'm going to switch to 1.7 (with string switches).
+
 I owe you a good wiki page that explains everything in pretty easy terms and short sentences.
 
 11/23/2011
