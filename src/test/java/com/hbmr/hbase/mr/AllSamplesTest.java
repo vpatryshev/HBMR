@@ -1,4 +1,4 @@
-package com.hbmr.hbase.mr.samples;
+package com.hbmr.hbase.mr;
 
 import static java.util.Collections.*;
 
@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import com.hbmr.hbase.mr.samples.RowCounter;
+import com.hbmr.hbase.mr.samples.Update;
 import junit.framework.TestCase;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HColumnDescriptor;
