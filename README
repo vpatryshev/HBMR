@@ -1,0 +1,19 @@
+HBMR ("HBase Map/Reduce") is a simplistic library for doing mapreduce on HBase tables.
+
+Key principles:
+- input and output are hbase tables;
+- all data being processed are represented as strings;
+- two kinds of mapreductions:
+- a) map and then reduce; make sure you have a monoid that you reduce;
+- b) just map, no reduction: meaning you most probably do not even produce anything during map phase - or maybe you do.
+
+The purpose of this library is this:
+
+- a bunch of people just don't understand what map/reduce is, and either are lost, 
+or invent their own math; that's sad;
+- the existing API is approximately 42 times more complex than it should or could be.
+
+I owe you a good wiki page that explains everything in pretty easy terms and short sentences.
+
+11/23/2011
+Vlad Patryshev
