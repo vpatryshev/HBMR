@@ -3,9 +3,13 @@ package com.hbmr.hbase.mr;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLDecoder;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Map;
 
+import com.google.common.base.Functions;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.client.*;
@@ -20,10 +24,11 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.OutputFormat;
+import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.util.GenericOptionsParser;
 
 import com.google.common.base.Function;
-
+import com.google.common.collect.Iterables;
 /**
  * Mapreduce framework. Work in progress, will be documented later on.
  *
@@ -34,7 +39,6 @@ public class Framework {
   public static final String ACTION_CLASS_KEY = "mr.framework.action.class";
   public static final String COUNTER_KEY = "counter.key";
   public static final String OUTPUT_COLUMN = "mr.framework.output";
-  static final String TABLE_NAME = "Stats..";
   final static boolean LOCAL_HBASE = true;
   final static String WHERE_HBASE = LOCAL_HBASE ? "localhost" : "undefined";
 
@@ -93,6 +97,7 @@ public class Framework {
       try {
         Configuration configuration = context.getConfiguration();
         action = mrAction(configuration);
+        Preconditions.checkNotNull(action);
       } catch (Exception e) {
         throw new IOException("Failed to instantiate MrAction: " + e);
       }
@@ -115,8 +120,16 @@ public class Framework {
     private MrAction action;
     private byte[] familyName;
     private byte[] columnName;
+    Function<Object, String> toString = new Function<Object, String>() {
+      @Override
+      public String apply(Object input) {
+        return input instanceof Result ? new String(((Result) input).getValue(familyName, columnName)) :
+               input instanceof ImmutableBytesWritable ? asString((ImmutableBytesWritable) input) : input.toString();
+      }
+    };
 
-    protected void setup(Mapper<ImmutableBytesWritable, Result, Writable, Writable>.Context context) throws IOException, InterruptedException {
+    @Override
+    protected void setup(Reducer<ImmutableBytesWritable, Result, Writable, Writable>.Context context) throws IOException, InterruptedException {
       try {
         Configuration configuration = context.getConfiguration();
         String[] col = configuration.get(OUTPUT_COLUMN).split(":");
@@ -134,16 +147,21 @@ public class Framework {
       return put;
     }
 
-//    @Override
-//    public void reduce(ImmutableBytesWritable key, Iterable<ImmutableBytesWritable> values,  Mapper<ImmutableBytesWritable, Result, Writable, Writable>.Context context)
-//        throws IOException, InterruptedException {
-//      String rowkey = asString(key);
-//      Iterable<String> valuesToReduce = Iterables.transform(values, AS_STRING);
-//      String reduced = action.reduce(valuesToReduce, context.getConfiguration());
-//      if (reduced != null) {
-//        context.write(key, put(Framework.asString(key), reduced));
-//      }
-//    }
+    @Override
+    protected void reduce(ImmutableBytesWritable key, Iterable<Result> values, Context context) throws IOException, InterruptedException {
+      Preconditions.checkNotNull(values);
+      Preconditions.checkNotNull(action);
+      Iterable<String> valuesToReduce =
+          values == null ? Collections.<String>emptyList() :
+                           Iterables.transform(
+                               Iterables.filter(values, Predicates.<Object>notNull()),
+                               toString);
+
+      String reduced = action.reduce(valuesToReduce, context == null ? null : context.getConfiguration());
+      if (reduced != null) {
+        context.write(key, put(Framework.asString(key), reduced));
+      }
+    }
   }
 
   private Job buildJob(String name, Class<? extends MrAction> mrClass) throws IOException {
@@ -219,7 +237,7 @@ public class Framework {
     return new String(row.copyBytes());
   }
 
-  static final Function<ImmutableBytesWritable, String> AS_STRING = new Function<ImmutableBytesWritable, String>() {
+  static final Function<ImmutableBytesWritable, String> BYTES_TO_STRING = new Function<ImmutableBytesWritable, String>() {
 
     public String apply(ImmutableBytesWritable ibw) {
       return asString(ibw);
